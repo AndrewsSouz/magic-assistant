@@ -157,20 +157,23 @@ async def _fetch_from_mtg_api(card_name: str, client: httpx.AsyncClient) -> Card
 
 
 async def fetch_card_by_name(card_name: str, client: httpx.AsyncClient) -> CardData:
-    fetchers = (
-        lambda: _fetch_from_mtg_api(card_name, client),
-        lambda: _fetch_scryfall_named(card_name, "exact", client),
-        lambda: _fetch_scryfall_named(card_name, "fuzzy", client),
-    )
+    try:
+        card = await _fetch_scryfall_named(card_name, "exact", client)
+    except ScryfallRateLimitExceeded:
+        card = None
+    if card:
+        return card
 
-    for fetcher in fetchers:
-        try:
-            card = await fetcher()
-        except ScryfallRateLimitExceeded:
-            card = None
+    try:
+        card = await _fetch_scryfall_named(card_name, "fuzzy", client)
+    except ScryfallRateLimitExceeded:
+        card = None
+    if card:
+        return card
 
-        if card:
-            return card
+    card = await _fetch_from_mtg_api(card_name, client)
+    if card:
+        return card
 
     log.error("Could not resolve '%s' in Scryfall or MTG API", card_name)
     raise CardLookupError(f"Could not find card '{card_name}' in Scryfall or MTG API.")
