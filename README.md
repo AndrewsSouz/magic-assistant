@@ -24,6 +24,10 @@ Swagger:
 Healthcheck:
 - `http://localhost:8000/health`
 
+Logs:
+- por padrão vão para `logs/magic-assistant.log`
+- para mudar o caminho, define `APP_LOG_FILE`
+
 ## Exemplo de request
 
 ```bash

@@ -24,9 +24,9 @@ class CardData(BaseModel):
     cmc: Optional[float] = None
     type_line: Optional[str] = None
     oracle_text: Optional[str] = None
-    colors: List[str] = []
-    color_identity: List[str] = []
-    legalities: dict = {}
+    colors: List[str] = Field(default_factory=list)
+    color_identity: List[str] = Field(default_factory=list)
+    legalities: dict = Field(default_factory=dict)
     image_url: Optional[str] = None
     scryfall_uri: Optional[str] = None
 
