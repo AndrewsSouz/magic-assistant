@@ -122,7 +122,7 @@ async def _fetch_scryfall_named(
                 "Scryfall %s lookup for '%s' hit 429; cooling down for %.2f seconds",
                 lookup_type,
                 card_name,
-                cooldown_seconds or SCRYFALL_DEFAULT_COOLDOWN_AFTER_429_SECONDS,
+                cooldown_seconds or SCRYFALL_DEFAULT_COOLDOWN_AFTER_429_SECO     DS,
             )
             if attempt == 0:
                 continue
