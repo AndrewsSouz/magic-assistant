@@ -7,7 +7,7 @@ from app.analysis import build_basic_analysis, guess_format
 from app.logging_config import configure_logging
 from app.models import AnalyzeDeckRequest, AnalyzeDeckResponse, HealthResponse
 from app.parser import parse_decklist
-from app.scryfall import CardLookupError, fetch_cards
+from app.card_integration import CardLookupError, fetch_cards
 
 APP_VERSION = "0.1.0"
 log_file = configure_logging()
