@@ -114,6 +114,7 @@ async def _fetch_scryfall_named(
     client: httpx.AsyncClient,
 ) -> CardData | None:
     for attempt in range(2):
+        log.info("Trying Scryfall %s lookup for '%s' (attempt %s)", lookup_type, card_name, attempt + 1)
         response, cooldown_seconds = await SCRYFALL_RATE_LIMITER.execute(
             lambda: client.get(SCRYFALL_NAMED_URL, params={lookup_type: card_name})
         )
@@ -133,6 +134,7 @@ async def _fetch_scryfall_named(
             log.warning("Scryfall %s lookup for '%s' failed with status %s", lookup_type, card_name, response.status_code)
             return None
 
+        log.info("Resolved '%s' via Scryfall %s", card_name, lookup_type)
         return _build_card_data_from_scryfall(response.json())
 
     return None
@@ -204,16 +206,20 @@ async def fetch_cards(card_names: Iterable[str]) -> List[CardData]:
         if not missing_names:
             return cards
 
-        if len(missing_names) > MAX_SCRYFALL_FALLBACK_CARDS:
-            log.warning(
-                "Skipping Scryfall fallback for %s card(s); limit is %s. Returning minimal card data for misses.",
-                len(missing_names),
-                MAX_SCRYFALL_FALLBACK_CARDS,
-            )
-            return cards
+        fallback_names = missing_names[:MAX_SCRYFALL_FALLBACK_CARDS]
+        fallback_indexes = missing_indexes[:MAX_SCRYFALL_FALLBACK_CARDS]
+        skipped_names = missing_names[MAX_SCRYFALL_FALLBACK_CARDS:]
 
-        log.warning("Trying Scryfall fallback for %s unresolved card(s)", len(missing_names))
-        for index, name in zip(missing_indexes, missing_names):
+        log.warning(
+            "Trying Scryfall fallback for %s unresolved card(s)%s",
+            len(fallback_names),
+            f"; skipping {len(skipped_names)} beyond limit" if skipped_names else "",
+        )
+
+        for skipped_name in skipped_names:
+            log.warning("Skipping Scryfall fallback for '%s' because fallback limit was reached", skipped_name)
+
+        for index, name in zip(fallback_indexes, fallback_names):
             try:
                 scryfall_card = await _fetch_scryfall_named(name, "exact", client)
                 if not scryfall_card:
