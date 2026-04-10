@@ -225,8 +225,6 @@ class HttpCardIntegration:
             for index, name in zip(missing_indexes, missing_names):
                 try:
                     scryfall_card = await self._fetch_scryfall_named(name, "exact", client)
-                    if not scryfall_card:
-                        scryfall_card = await self._fetch_scryfall_named(name, "fuzzy", client)
                 except ScryfallRateLimitExceeded:
                     scryfall_card = None
 

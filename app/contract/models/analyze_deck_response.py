@@ -12,3 +12,4 @@ class AnalyzeDeckResponse(BaseModel):
     parsed_deck: ParsedDeck
     card_count: int
     sideboard_count: int
+    analysis_source: str

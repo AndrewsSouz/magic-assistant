@@ -1,6 +1,6 @@
 # Magic Assistant MVP
 
-Backend Python para analisar decklists de Magic: The Gathering com provedores de cartas e analise heuristica inicial.
+Backend Python para analisar decklists de Magic: The Gathering com provedores de cartas e analise heuristica inicial, com enriquecimento opcional via LLM.
 
 Versao atual:
 - `v0.1.0`
@@ -11,6 +11,7 @@ Versao atual:
 - separa mainboard e sideboard
 - busca cartas via MTG API com fallback para Scryfall
 - retorna análise heurística inicial
+- usa OpenAI opcionalmente para refinar resumo, pontos fortes, pontos fracos e sugestões
 - pronto para deploy no Railway via Docker
 
 ## Documentacao
@@ -35,6 +36,11 @@ Healthcheck:
 Logs:
 - por padrão vão para `logs/magic-assistant.log`
 - para mudar o caminho, define `APP_LOG_FILE`
+
+LLM opcional:
+- define `OPENAI_API_KEY` para ativar a análise via OpenAI
+- o modelo padrão é `gpt-5.4-mini`, configurável por `OPENAI_MODEL`
+- sem chave, ou em caso de erro na chamada, a API continua respondendo com a heurística local
 
 ## Exemplo de request
 
