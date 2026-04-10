@@ -18,6 +18,7 @@ DEFAULT_HEADERS = {
 }
 SCRYFALL_MIN_INTERVAL_SECONDS = 2.5
 SCRYFALL_DEFAULT_COOLDOWN_AFTER_429_SECONDS = 5.0
+MAX_SCRYFALL_FALLBACK_CARDS = 10
 
 
 class CardLookupError(Exception):
@@ -184,5 +185,45 @@ async def fetch_cards(card_names: Iterable[str]) -> List[CardData]:
     timeout = httpx.Timeout(20.0)
     limits = httpx.Limits(max_keepalive_connections=10, max_connections=20)
     async with httpx.AsyncClient(timeout=timeout, limits=limits, headers=DEFAULT_HEADERS) as client:
-        tasks = [fetch_card_by_name(name, client) for name in card_names]
-        return await asyncio.gather(*tasks)
+        mtg_tasks = [_fetch_from_mtg_api(name, client) for name in card_names]
+        mtg_results = await asyncio.gather(*mtg_tasks)
+
+        cards: List[CardData] = []
+        missing_names: List[str] = []
+        missing_indexes: List[int] = []
+
+        for index, (name, mtg_card) in enumerate(zip(card_names, mtg_results)):
+            if mtg_card:
+                cards.append(mtg_card)
+                continue
+
+            cards.append(CardData(name=name))
+            missing_names.append(name)
+            missing_indexes.append(index)
+
+        if not missing_names:
+            return cards
+
+        if len(missing_names) > MAX_SCRYFALL_FALLBACK_CARDS:
+            log.warning(
+                "Skipping Scryfall fallback for %s card(s); limit is %s. Returning minimal card data for misses.",
+                len(missing_names),
+                MAX_SCRYFALL_FALLBACK_CARDS,
+            )
+            return cards
+
+        log.warning("Trying Scryfall fallback for %s unresolved card(s)", len(missing_names))
+        for index, name in zip(missing_indexes, missing_names):
+            try:
+                scryfall_card = await _fetch_scryfall_named(name, "exact", client)
+                if not scryfall_card:
+                    scryfall_card = await _fetch_scryfall_named(name, "fuzzy", client)
+            except ScryfallRateLimitExceeded:
+                scryfall_card = None
+
+            if scryfall_card:
+                cards[index] = scryfall_card
+            else:
+                log.warning("Returning minimal card data for '%s' after fallback attempts", name)
+
+        return cards
