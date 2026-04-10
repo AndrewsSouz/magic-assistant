@@ -10,7 +10,7 @@ CONSOLE_FORMAT = "%(levelname)s [%(name)s] %(message)s"
 
 
 def configure_logging() -> Path:
-    log_file = Path(os.getenv("APP_LOG_FILE", DEFAULT_LOG_FILE))
+    log_file = Path(DEFAULT_LOG_FILE)
     log_file.parent.mkdir(parents=True, exist_ok=True)
 
     root_logger = logging.getLogger()
@@ -23,7 +23,8 @@ def configure_logging() -> Path:
         root_logger.addHandler(console_handler)
 
     if not any(
-        isinstance(handler, logging.FileHandler) and Path(handler.baseFilename) == resolved_log_file
+        isinstance(handler, logging.FileHandler) and Path(
+            handler.baseFilename) == resolved_log_file
         for handler in root_logger.handlers
     ):
         file_handler = logging.FileHandler(log_file, encoding="utf-8")
