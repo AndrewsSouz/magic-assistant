@@ -1,5 +1,7 @@
 import re
-from app.models import DeckEntry, ParsedDeck
+
+from app.domain.models.deck.deck_entry import DeckEntry
+from app.domain.models.deck.parsed_deck import ParsedDeck
 
 LINE_RE = re.compile(r"^\s*(\d+)\s+(.+?)\s*$", re.IGNORECASE)
 MANABOX_SUFFIX_RE = re.compile(r"^(.*?)(?:\s+\(([A-Z0-9]+)\)\s+(\d+[A-Z]?))$", re.IGNORECASE)

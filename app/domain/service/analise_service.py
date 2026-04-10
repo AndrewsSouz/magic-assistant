@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from collections import Counter
-from typing import List
 
-from app.models import CardData, ParsedDeck
+from app.domain.models.card.card_data import CardData
+from app.domain.models.deck.parsed_deck import ParsedDeck
 
 
 def guess_format(parsed_deck: ParsedDeck) -> str:
@@ -29,7 +29,7 @@ def classify_game_plan(avg_cmc: float, creature_count: int, spell_count: int) ->
     return "plano híbrido"
 
 
-def build_basic_analysis(parsed_deck: ParsedDeck, cards: List[CardData]) -> dict:
+def build_basic_analysis(parsed_deck: ParsedDeck, cards: list[CardData]) -> dict:
     color_counter = Counter()
     type_counter = Counter()
     cmcs = []

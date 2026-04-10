@@ -1,13 +1,21 @@
 # Magic Assistant MVP
 
-Backend Python para analisar decklists de Magic: The Gathering com dados da Scryfall.
+Backend Python para analisar decklists de Magic: The Gathering com provedores de cartas e analise heuristica inicial.
+
+Versao atual:
+- `v0.1.0`
+- primeira versao funcional sem integracao com LLM
 
 ## O que já faz
 - recebe decklist em texto
 - separa mainboard e sideboard
-- busca as cartas na Scryfall
+- busca cartas via MTG API com fallback para Scryfall
 - retorna análise heurística inicial
 - pronto para deploy no Railway via Docker
+
+## Documentacao
+- arquitetura: `docs/architecture.md`
+- roadmap: `docs/roadmap.md`
 
 ## Rodando localmente
 
@@ -15,7 +23,7 @@ Backend Python para analisar decklists de Magic: The Gathering com dados da Scry
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload
+uvicorn main:app --reload
 ```
 
 Swagger:
