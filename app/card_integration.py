@@ -16,7 +16,7 @@ DEFAULT_HEADERS = {
     "User-Agent": "magic-assistant-mvp/0.1.0",
     "Accept": "application/json;q=0.9,*/*;q=0.8",
 }
-SCRYFALL_MIN_INTERVAL_SECONDS = 0.12
+SCRYFALL_MIN_INTERVAL_SECONDS = 2.5
 SCRYFALL_DEFAULT_COOLDOWN_AFTER_429_SECONDS = 5.0
 
 
@@ -157,6 +157,10 @@ async def _fetch_from_mtg_api(card_name: str, client: httpx.AsyncClient) -> Card
 
 
 async def fetch_card_by_name(card_name: str, client: httpx.AsyncClient) -> CardData:
+    card = await _fetch_from_mtg_api(card_name, client)
+    if card:
+        return card
+
     try:
         card = await _fetch_scryfall_named(card_name, "exact", client)
     except ScryfallRateLimitExceeded:
@@ -171,12 +175,8 @@ async def fetch_card_by_name(card_name: str, client: httpx.AsyncClient) -> CardD
     if card:
         return card
 
-    card = await _fetch_from_mtg_api(card_name, client)
-    if card:
-        return card
-
-    log.error("Could not resolve '%s' in Scryfall or MTG API", card_name)
-    raise CardLookupError(f"Could not find card '{card_name}' in Scryfall or MTG API.")
+    log.warning("Could not resolve '%s' in Scryfall or MTG API; returning minimal card data", card_name)
+    return CardData(name=card_name)
 
 
 async def fetch_cards(card_names: Iterable[str]) -> List[CardData]:
