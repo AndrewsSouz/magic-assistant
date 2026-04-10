@@ -18,7 +18,6 @@ DEFAULT_HEADERS = {
 }
 SCRYFALL_MIN_INTERVAL_SECONDS = 2.5
 SCRYFALL_DEFAULT_COOLDOWN_AFTER_429_SECONDS = 5.0
-MAX_SCRYFALL_FALLBACK_CARDS = 10
 
 
 class CardLookupError(Exception):
@@ -206,20 +205,9 @@ async def fetch_cards(card_names: Iterable[str]) -> List[CardData]:
         if not missing_names:
             return cards
 
-        fallback_names = missing_names[:MAX_SCRYFALL_FALLBACK_CARDS]
-        fallback_indexes = missing_indexes[:MAX_SCRYFALL_FALLBACK_CARDS]
-        skipped_names = missing_names[MAX_SCRYFALL_FALLBACK_CARDS:]
+        log.warning("Trying Scryfall fallback for %s unresolved card(s)", len(missing_names))
 
-        log.warning(
-            "Trying Scryfall fallback for %s unresolved card(s)%s",
-            len(fallback_names),
-            f"; skipping {len(skipped_names)} beyond limit" if skipped_names else "",
-        )
-
-        for skipped_name in skipped_names:
-            log.warning("Skipping Scryfall fallback for '%s' because fallback limit was reached", skipped_name)
-
-        for index, name in zip(fallback_indexes, fallback_names):
+        for index, name in zip(missing_indexes, missing_names):
             try:
                 scryfall_card = await _fetch_scryfall_named(name, "exact", client)
                 if not scryfall_card:
