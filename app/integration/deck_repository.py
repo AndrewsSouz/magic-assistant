@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from bson import ObjectId
@@ -38,6 +39,71 @@ class DeckRepository:
             return None
         return self._to_user_deck(document)
 
+    async def mark_enrichment_processing(self, deck_id: str) -> None:
+        await self._update_deck(
+            deck_id,
+            {
+                "enrichment_status": "processing",
+                "enrichment_error": None,
+                "enrichment_started_at": self._utcnow(),
+                "updated_at": self._utcnow(),
+            },
+        )
+
+    async def complete_enrichment(
+        self,
+        deck_id: str,
+        *,
+        cards: list[dict[str, Any]],
+        format_guess: str,
+        card_count: int,
+        sideboard_count: int,
+    ) -> None:
+        await self._update_deck(
+            deck_id,
+            {
+                "cards": cards,
+                "format_guess": format_guess,
+                "card_count": card_count,
+                "sideboard_count": sideboard_count,
+                "enrichment_status": "completed",
+                "enrichment_error": None,
+                "enrichment_completed_at": self._utcnow(),
+                "updated_at": self._utcnow(),
+            },
+        )
+
+    async def fail_enrichment(self, deck_id: str, error: str) -> None:
+        await self._update_deck(
+            deck_id,
+            {
+                "enrichment_status": "failed",
+                "enrichment_error": error,
+                "enrichment_completed_at": self._utcnow(),
+                "updated_at": self._utcnow(),
+            },
+        )
+
+    async def reset_enrichment(self, deck_id: str) -> None:
+        await self._update_deck(
+            deck_id,
+            {
+                "cards": [],
+                "format_guess": None,
+                "card_count": 0,
+                "sideboard_count": 0,
+                "enrichment_status": "pending",
+                "enrichment_error": None,
+                "enrichment_started_at": None,
+                "enrichment_completed_at": None,
+                "updated_at": self._utcnow(),
+            },
+        )
+
+    async def _update_deck(self, deck_id: str, fields: dict[str, Any]) -> None:
+        object_id = ObjectId(deck_id)
+        await self._collection.update_one({"_id": object_id}, {"$set": fields})
+
     @property
     def _collection(self):
         return self._mongo_integration.database["decks"]
@@ -48,12 +114,22 @@ class DeckRepository:
             id=str(document["_id"]),
             user_id=str(document["user_id"]),
             name=str(document["name"]),
-            decklist=str(document["decklist"]),
+            raw_decklist=str(document["raw_decklist"]),
             parsed_deck=document.get("parsed_deck") or {"mainboard": [], "sideboard": []},
             cards=document.get("cards") or [],
-            format_guess=str(document.get("format_guess") or document.get("format_hint") or "Desconhecido"),
+            format_guess=document.get("format_guess"),
             card_count=int(document.get("card_count") or 0),
             sideboard_count=int(document.get("sideboard_count") or 0),
+            enrichment_status=str(document.get("enrichment_status") or "pending"),
+            enrichment_error=document.get("enrichment_error"),
+            enrichment_started_at=document.get("enrichment_started_at"),
+            enrichment_completed_at=document.get("enrichment_completed_at"),
+            created_at=document.get("created_at") or DeckRepository._utcnow(),
+            updated_at=document.get("updated_at") or DeckRepository._utcnow(),
             format_hint=document.get("format_hint"),
             goal=document.get("goal"),
         )
+
+    @staticmethod
+    def _utcnow() -> datetime:
+        return datetime.now(timezone.utc)

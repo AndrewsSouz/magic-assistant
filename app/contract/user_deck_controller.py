@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.api.dependencies import get_auth_service, get_user_deck_service
 from app.contract.models.analyze_deck_response import AnalyzeDeckResponse
 from app.contract.models.create_user_deck_request import CreateUserDeckRequest
+from app.contract.models.create_user_deck_response import CreateUserDeckResponse
 from app.contract.models.login_user_request import LoginUserRequest
 from app.contract.models.register_user_request import RegisterUserRequest
 from app.contract.models.user_deck_response import UserDeckResponse
@@ -44,12 +45,12 @@ async def login_user(
     return UserResponse.model_validate(user.model_dump())
 
 
-@router.post("/{user_id}/decks", response_model=UserDeckResponse)
+@router.post("/{user_id}/decks", response_model=CreateUserDeckResponse)
 async def create_user_deck(
     user_id: str,
     request: CreateUserDeckRequest,
     user_deck_service: UserDeckService = Depends(get_user_deck_service),
-) -> UserDeckResponse:
+) -> CreateUserDeckResponse:
     try:
         deck = await user_deck_service.create_deck(
             user_id=user_id,
@@ -58,10 +59,16 @@ async def create_user_deck(
             format_hint=request.format_hint,
             goal=request.goal,
         )
+        user_deck_service.schedule_enrichment(user_id, deck.id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    return UserDeckResponse.model_validate(deck.model_dump())
+    return CreateUserDeckResponse(
+        id=deck.id,
+        name=deck.name,
+        enrichment_status=deck.enrichment_status,
+        message="Deck created successfully. Enrichment started.",
+    )
 
 
 @router.get("/{user_id}/decks", response_model=list[UserDeckResponse])
@@ -89,6 +96,26 @@ async def get_user_deck(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return UserDeckResponse.model_validate(deck.model_dump())
+
+
+@router.post("/{user_id}/decks/{deck_id}/enrich", response_model=CreateUserDeckResponse)
+async def retry_enrichment(
+    user_id: str,
+    deck_id: str,
+    user_deck_service: UserDeckService = Depends(get_user_deck_service),
+) -> CreateUserDeckResponse:
+    try:
+        deck = await user_deck_service.retry_enrichment(user_id, deck_id)
+        user_deck_service.schedule_enrichment(user_id, deck_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return CreateUserDeckResponse(
+        id=deck.id,
+        name=deck.name,
+        enrichment_status=deck.enrichment_status,
+        message="Deck enrichment restarted.",
+    )
 
 
 @router.post("/{user_id}/decks/{deck_id}/analyze", response_model=AnalyzeDeckResponse)

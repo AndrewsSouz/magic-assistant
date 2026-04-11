@@ -23,7 +23,7 @@ class DeckService:
         if not parsed_deck.mainboard:
             raise ValueError("Decklist inválida ou vazia.")
 
-        cards = await self._card_service.fetch_cards(
+        cards = await self._card_service.fetch_cards_by_exact_names(
             [item.card_name for item in parsed_deck.mainboard]
         )
         format_guess = request.format_hint or guess_format(parsed_deck)
