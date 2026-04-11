@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.contract.deck_controller import router as deck_router
+from app.contract.user_deck_controller import router as user_deck_router
 from app.config.logging_config import configure_logging
 
 APP_VERSION = "0.1.0"
@@ -47,5 +48,6 @@ def create_app() -> FastAPI:
         return response
 
     app.include_router(deck_router)
+    app.include_router(user_deck_router)
 
     return app
