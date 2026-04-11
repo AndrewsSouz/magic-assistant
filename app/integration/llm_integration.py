@@ -93,7 +93,11 @@ class LlmIntegration:
                 "OpenRouter deck analysis request failed for model %s", self._model)
             return None
 
-        log.info("OpenRouter response received for model %s: %s", self._model, response)
+        log.info(
+            "OpenRouter response received for model %s with %s output item(s)",
+            self._model,
+            len(getattr(response, "output", []) or []),
+        )
         output_text = self._extract_output_text(response)
         log.info("Extracted output text for model %s: %s", self._model, output_text)
         if not output_text:
@@ -119,10 +123,19 @@ class LlmIntegration:
 
     @staticmethod
     def _extract_output_text(response: Any) -> str | None:
+        aggregated_text = getattr(response, "output_text", None)
+        if isinstance(aggregated_text, str) and aggregated_text.strip():
+            return aggregated_text.strip()
+
         try:
-            text = response.output[0].content[0].text
-            if text:
-                return text
+            for output in response.output:
+                if getattr(output, "type", None) != "message":
+                    continue
+
+                for content in getattr(output, "content", []) or []:
+                    text = getattr(content, "text", None)
+                    if isinstance(text, str) and text.strip():
+                        return text.strip()
         except (AttributeError, IndexError, TypeError):
             return None
         return None

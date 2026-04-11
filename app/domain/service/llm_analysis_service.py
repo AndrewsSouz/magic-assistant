@@ -101,7 +101,7 @@ class LlmAnalysisService:
             f"{chr(10).join(sideboard_lines) if sideboard_lines else 'vazio'}\n\n"
             "Cartas enriquecidas:\n"
             f"{chr(10).join(card_notes) if card_notes else 'sem dados de cartas'}\n\n"
-            "Retorne um JSON com:\n"
+            "Retorne um JSON como passado no json schema:\n"
             '- "summary": um parágrafo curto\n'
             '- "strengths": lista com 2 a 4 itens\n'
             '- "weaknesses": lista com 2 a 4 itens\n'

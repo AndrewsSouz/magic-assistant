@@ -16,31 +16,11 @@ class DeckRepository:
     def enabled(self) -> bool:
         return self._mongo_integration.enabled
 
-    async def create(
-        self,
-        user_id: str,
-        name: str,
-        decklist: str,
-        format_hint: str | None,
-        goal: str | None,
-    ) -> UserDeck:
-        result = await self._collection.insert_one(
-            {
-                "user_id": user_id,
-                "name": name,
-                "decklist": decklist,
-                "format_hint": format_hint,
-                "goal": goal,
-            }
-        )
-        return UserDeck(
-            id=str(result.inserted_id),
-            user_id=user_id,
-            name=name,
-            decklist=decklist,
-            format_hint=format_hint,
-            goal=goal,
-        )
+    async def create(self, deck: UserDeck) -> UserDeck:
+        payload = deck.model_dump(mode="json")
+        payload.pop("id", None)
+        result = await self._collection.insert_one(payload)
+        return deck.model_copy(update={"id": str(result.inserted_id)})
 
     async def list_by_user_id(self, user_id: str) -> list[UserDeck]:
         cursor = self._collection.find({"user_id": user_id}).sort("_id", -1)
@@ -69,6 +49,11 @@ class DeckRepository:
             user_id=str(document["user_id"]),
             name=str(document["name"]),
             decklist=str(document["decklist"]),
+            parsed_deck=document.get("parsed_deck") or {"mainboard": [], "sideboard": []},
+            cards=document.get("cards") or [],
+            format_guess=str(document.get("format_guess") or document.get("format_hint") or "Desconhecido"),
+            card_count=int(document.get("card_count") or 0),
+            sideboard_count=int(document.get("sideboard_count") or 0),
             format_hint=document.get("format_hint"),
             goal=document.get("goal"),
         )

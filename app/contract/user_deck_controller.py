@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.dependencies import get_auth_service, get_user_deck_service
+from app.contract.models.analyze_deck_response import AnalyzeDeckResponse
 from app.contract.models.create_user_deck_request import CreateUserDeckRequest
 from app.contract.models.login_user_request import LoginUserRequest
 from app.contract.models.register_user_request import RegisterUserRequest
@@ -74,3 +75,29 @@ async def list_user_decks(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return [UserDeckResponse.model_validate(deck.model_dump()) for deck in decks]
+
+
+@router.get("/{user_id}/decks/{deck_id}", response_model=UserDeckResponse)
+async def get_user_deck(
+    user_id: str,
+    deck_id: str,
+    user_deck_service: UserDeckService = Depends(get_user_deck_service),
+) -> UserDeckResponse:
+    try:
+        deck = await user_deck_service.get_user_deck(user_id, deck_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return UserDeckResponse.model_validate(deck.model_dump())
+
+
+@router.post("/{user_id}/decks/{deck_id}/analyze", response_model=AnalyzeDeckResponse)
+async def analyze_user_deck(
+    user_id: str,
+    deck_id: str,
+    user_deck_service: UserDeckService = Depends(get_user_deck_service),
+) -> AnalyzeDeckResponse:
+    try:
+        return await user_deck_service.analyze_deck(user_id, deck_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
