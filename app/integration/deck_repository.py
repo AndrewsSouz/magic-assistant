@@ -5,6 +5,7 @@ from typing import Any
 
 from bson import ObjectId
 
+from app.domain.models.deck.deck_analysis import DeckAnalysis
 from app.domain.models.deck.user_deck import UserDeck
 from app.integration.mongo_integration import MongoIntegration
 
@@ -111,6 +112,45 @@ class DeckRepository:
             },
         )
 
+    async def mark_analysis_pending(self, deck_id: str) -> None:
+        now = self._utcnow()
+        await self._update_deck(
+            deck_id,
+            {
+                "analysis_status": "pending",
+                "analysis_error": None,
+                "analysis_started_at": now,
+                "analysis_completed_at": None,
+                "analysis_result": None,
+                "updated_at": now,
+            },
+        )
+
+    async def complete_analysis(self, deck_id: str, analysis_result: DeckAnalysis) -> None:
+        now = self._utcnow()
+        await self._update_deck(
+            deck_id,
+            {
+                "analysis_status": "done",
+                "analysis_error": None,
+                "analysis_completed_at": now,
+                "analysis_result": analysis_result.model_dump(mode="json"),
+                "updated_at": now,
+            },
+        )
+
+    async def fail_analysis(self, deck_id: str, error: str) -> None:
+        now = self._utcnow()
+        await self._update_deck(
+            deck_id,
+            {
+                "analysis_status": "failed",
+                "analysis_error": error,
+                "analysis_completed_at": now,
+                "updated_at": now,
+            },
+        )
+
     async def _update_deck(self, deck_id: str, fields: dict[str, Any]) -> None:
         object_id = ObjectId(deck_id)
         await self._collection.update_one({"_id": object_id}, {"$set": fields})
@@ -135,6 +175,11 @@ class DeckRepository:
             enrichment_error=document.get("enrichment_error"),
             enrichment_started_at=document.get("enrichment_started_at"),
             enrichment_completed_at=document.get("enrichment_completed_at"),
+            analysis_status=str(document.get("analysis_status") or "not_requested"),
+            analysis_error=document.get("analysis_error"),
+            analysis_started_at=document.get("analysis_started_at"),
+            analysis_completed_at=document.get("analysis_completed_at"),
+            analysis_result=document.get("analysis_result"),
             created_at=document.get("created_at") or DeckRepository._utcnow(),
             updated_at=document.get("updated_at") or DeckRepository._utcnow(),
             format_hint=document.get("format_hint"),

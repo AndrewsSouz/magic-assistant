@@ -5,6 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.domain.models.card.card_data import CardData
+from app.domain.models.deck.deck_analysis import DeckAnalysis
 from app.domain.models.deck.parsed_deck import ParsedDeck
 
 
@@ -22,6 +23,11 @@ class UserDeck(BaseModel):
     enrichment_error: str | None = None
     enrichment_started_at: datetime | None = None
     enrichment_completed_at: datetime | None = None
+    analysis_status: str = "not_requested"
+    analysis_error: str | None = None
+    analysis_started_at: datetime | None = None
+    analysis_completed_at: datetime | None = None
+    analysis_result: DeckAnalysis | None = None
     created_at: datetime
     updated_at: datetime
     format_hint: str | None = None
