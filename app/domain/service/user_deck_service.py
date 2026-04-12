@@ -222,11 +222,21 @@ class UserDeckService:
     @staticmethod
     def _build_ordered_cards(deck: UserDeck, card_map: dict[str, CardData]) -> list[CardData]:
         ordered_cards = [
-            card_map[entry.card_name.casefold()].model_copy(update={"sideboard": False})
+            card_map[entry.card_name.casefold()].model_copy(
+                update={
+                    "quantity": entry.quantity,
+                    "sideboard": False,
+                },
+            )
             for entry in deck.parsed_deck.mainboard
         ]
         ordered_cards.extend(
-            card_map[entry.card_name.casefold()].model_copy(update={"sideboard": True})
+            card_map[entry.card_name.casefold()].model_copy(
+                update={
+                    "quantity": entry.quantity,
+                    "sideboard": True,
+                },
+            )
             for entry in deck.parsed_deck.sideboard
         )
         return ordered_cards

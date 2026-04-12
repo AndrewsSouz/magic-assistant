@@ -5,7 +5,6 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 from app.domain.models.card.card_data import CardData
-from app.domain.models.deck.parsed_deck import ParsedDeck
 
 
 class UserDeckResponse(BaseModel):
@@ -13,7 +12,6 @@ class UserDeckResponse(BaseModel):
     user_id: str
     name: str
     raw_decklist: str
-    parsed_deck: ParsedDeck
     cards: list[CardData] = Field(default_factory=list)
     format_guess: str | None = None
     card_count: int = 0

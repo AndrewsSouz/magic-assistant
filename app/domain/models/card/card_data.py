@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 class CardData(BaseModel):
     name: str
+    quantity: int = 0
     mana_cost: Optional[str] = None
     cmc: Optional[float] = None
     type_line: Optional[str] = None
