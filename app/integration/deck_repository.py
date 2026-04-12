@@ -73,6 +73,17 @@ class DeckRepository:
             },
         )
 
+    async def mark_enrichment_pending(self, deck_id: str, error: str) -> None:
+        await self._update_deck(
+            deck_id,
+            {
+                "enrichment_status": "pending",
+                "enrichment_error": error,
+                "enrichment_completed_at": None,
+                "updated_at": self._utcnow(),
+            },
+        )
+
     async def fail_enrichment(self, deck_id: str, error: str) -> None:
         await self._update_deck(
             deck_id,

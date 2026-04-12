@@ -23,7 +23,9 @@ SCRYFALL_DEFAULT_COOLDOWN_AFTER_429_SECONDS = 3.0
 
 
 class CardEnrichmentError(Exception):
-    pass
+    def __init__(self, message: str, missing_names: list[str] | None = None) -> None:
+        super().__init__(message)
+        self.missing_names = missing_names or []
 
 
 class ScryfallRateLimitExceeded(Exception):
@@ -107,7 +109,7 @@ class HttpCardIntegration:
                 missing_names.extend(batch_missing_names)
 
         if missing_names:
-            raise CardEnrichmentError(f"Cards not found: {missing_names}")
+            raise CardEnrichmentError(f"Cards not found: {missing_names}", missing_names=missing_names)
 
         return all_cards
 
@@ -143,19 +145,24 @@ class HttpCardIntegration:
                 )
 
             payload = response.json() or {}
-            cards = [
-                self._build_card_data_from_scryfall(item)
-                for item in payload.get("data") or []
-            ]
+            alias_map: dict[str, CardData] = {}
+            for item in payload.get("data") or []:
+                card = self._build_card_data_from_scryfall(item)
+                for alias in self._extract_card_aliases(item):
+                    alias_map.setdefault(alias.casefold(), card)
+
             missing_names = [
                 str(item.get("name"))
                 for item in payload.get("not_found") or []
                 if item.get("name")
             ]
-
-            found_names = {card.name.casefold(): card for card in cards}
+            cards: list[CardData] = []
             for requested_name in card_names:
-                if requested_name.casefold() not in found_names and requested_name not in missing_names:
+                card = alias_map.get(requested_name.casefold())
+                if card:
+                    cards.append(card)
+                    continue
+                if requested_name not in missing_names:
                     missing_names.append(requested_name)
 
             return cards, missing_names
@@ -202,3 +209,17 @@ class HttpCardIntegration:
             image_url=image_uris.get("normal") or face_image,
             scryfall_uri=data.get("scryfall_uri"),
         )
+
+    @staticmethod
+    def _extract_card_aliases(data: dict[str, Any]) -> list[str]:
+        aliases: list[str] = []
+        name = data.get("name")
+        if name:
+            aliases.append(str(name))
+
+        for card_face in data.get("card_faces") or []:
+            face_name = card_face.get("name")
+            if face_name:
+                aliases.append(str(face_name))
+
+        return aliases

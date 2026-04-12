@@ -97,7 +97,10 @@ class UserDeckService:
 
         try:
             unique_cards = await self._card_service.fetch_cards_by_exact_names(unique_names)
-            card_map = {card.name.casefold(): card for card in unique_cards}
+            card_map = {
+                requested_name.casefold(): card
+                for requested_name, card in zip(unique_names, unique_cards)
+            }
             missing_names = [
                 name for name in unique_names
                 if name.casefold() not in card_map
@@ -117,14 +120,21 @@ class UserDeckService:
             )
             elapsed = round(time.perf_counter() - started_at, 2)
             log.info("Enrichment completed for deck %s in %s seconds", deck_id, elapsed)
+        except CardEnrichmentError as exc:
+            await self._deck_repository.mark_enrichment_pending(deck_id, str(exc))
+            log.warning("Enrichment pending for deck %s: %s", deck_id, exc)
         except Exception as exc:
             await self._deck_repository.fail_enrichment(deck_id, str(exc))
             log.exception("Enrichment failed for deck %s: %s", deck_id, exc)
 
     async def retry_enrichment(self, user_id: str, deck_id: str) -> UserDeck:
         deck = await self.get_user_deck(user_id, deck_id)
-        if deck.enrichment_status != "failed":
-            raise ValueError("Retry só é permitido para decks com status failed.")
+        if deck.enrichment_status == "processing":
+            raise ValueError("Deck já está em processamento.")
+        if deck.enrichment_status == "completed":
+            raise ValueError("Deck já foi enriquecido com sucesso.")
+        if deck.enrichment_status == "pending" and not deck.enrichment_error:
+            raise ValueError("Deck já está pendente de enriquecimento.")
 
         await self._deck_repository.reset_enrichment(deck_id)
         return await self.get_user_deck(user_id, deck_id)
