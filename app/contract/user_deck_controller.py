@@ -83,10 +83,9 @@ async def list_user_decks(
 
     return [
         UserDeckResponse.model_validate(
-            deck.model_dump(
-                update={"cards": user_deck_service.build_response_cards(deck)},
-                exclude={"parsed_deck"},
-            )
+            deck.model_copy(
+                update={"cards": user_deck_service.build_response_cards(deck)}
+            ).model_dump(exclude={"parsed_deck"})
         )
         for deck in decks
     ]
@@ -104,10 +103,9 @@ async def get_user_deck(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return UserDeckResponse.model_validate(
-        deck.model_dump(
-            update={"cards": user_deck_service.build_response_cards(deck)},
-            exclude={"parsed_deck"},
-        )
+        deck.model_copy(
+            update={"cards": user_deck_service.build_response_cards(deck)}
+        ).model_dump(exclude={"parsed_deck"})
     )
 
 
