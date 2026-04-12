@@ -10,7 +10,7 @@ from app.contract.models.create_user_deck_request import CreateUserDeckRequest
 from app.contract.models.create_user_deck_response import CreateUserDeckResponse
 from app.contract.models.login_user_request import LoginUserRequest
 from app.contract.models.register_user_request import RegisterUserRequest
-from app.contract.models.user_deck_response import UserDeckResponse
+from app.contract.models.user_deck_response import UserDeckListResponse, UserDeckResponse
 from app.contract.models.user_response import UserResponse
 from app.domain.service.auth_service import AuthService
 from app.domain.service.user_deck_service import UserDeckService
@@ -29,18 +29,21 @@ DECK_RESPONSE_EXCLUDE_FIELDS = {
 def _build_user_deck_response(
     deck,
     user_deck_service: UserDeckService,
-) -> UserDeckResponse:
-    payload = deck.model_copy(
-        update={"cards": user_deck_service.build_response_cards(deck)}
-    ).model_dump(exclude=DECK_RESPONSE_EXCLUDE_FIELDS)
+    *,
+    include_cards: bool,
+) -> UserDeckListResponse | UserDeckResponse:
+    serialized_deck = deck
+    if include_cards:
+        serialized_deck = deck.model_copy(
+            update={"cards": user_deck_service.build_response_cards(deck)}
+        )
 
-    if deck.analysis_result:
-        payload["analysis_result"] = {
-            **deck.analysis_result.model_dump(),
-            "parsed_deck": deck.parsed_deck.model_dump(),
-        }
+    payload = serialized_deck.model_dump(
+        exclude=DECK_RESPONSE_EXCLUDE_FIELDS.union({"cards"} if not include_cards else set())
+    )
 
-    return UserDeckResponse.model_validate(payload)
+    response_model = UserDeckResponse if include_cards else UserDeckListResponse
+    return response_model.model_validate(payload)
 
 
 @router.post("/register", response_model=UserResponse)
@@ -98,18 +101,18 @@ async def create_user_deck(
     )
 
 
-@router.get("/{user_id}/decks", response_model=list[UserDeckResponse])
+@router.get("/{user_id}/decks", response_model=list[UserDeckListResponse])
 async def list_user_decks(
     user_id: str,
     user_deck_service: UserDeckService = Depends(get_user_deck_service),
-) -> list[UserDeckResponse]:
+) -> list[UserDeckListResponse]:
     try:
         decks = await user_deck_service.list_user_decks(user_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return [
-        _build_user_deck_response(deck, user_deck_service)
+        _build_user_deck_response(deck, user_deck_service, include_cards=False)
         for deck in decks
     ]
 
@@ -125,7 +128,7 @@ async def get_user_deck(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    return _build_user_deck_response(deck, user_deck_service)
+    return _build_user_deck_response(deck, user_deck_service, include_cards=True)
 
 
 @router.post("/{user_id}/decks/{deck_id}/enrich", response_model=CreateUserDeckResponse)

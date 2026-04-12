@@ -198,12 +198,10 @@ class UserDeckService:
 
         result = deck.analysis_result
         return AnalyzeDeckResponse(
-            format_guess=result.format_guess,
             summary=result.summary,
             strengths=result.strengths,
             weaknesses=result.weaknesses,
             suggestions=result.suggestions,
-            parsed_deck=deck.parsed_deck,
             card_count=result.card_count,
             sideboard_count=result.sideboard_count,
             analysis_source=result.analysis_source,

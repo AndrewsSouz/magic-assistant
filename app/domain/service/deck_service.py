@@ -41,12 +41,10 @@ class DeckService:
         result = llm_result or heuristic_result
 
         return AnalyzeDeckResponse(
-            format_guess=format_guess,
             summary=result["summary"],
             strengths=result["strengths"],
             weaknesses=result["weaknesses"],
             suggestions=result["suggestions"],
-            parsed_deck=parsed_deck,
             card_count=result["card_count"],
             sideboard_count=result["sideboard_count"],
             analysis_source="llm" if llm_result else "heuristic",

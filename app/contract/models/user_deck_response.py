@@ -8,11 +8,10 @@ from app.contract.models.analyze_deck_response import AnalyzeDeckResponse
 from app.domain.models.card.card_data import CardData
 
 
-class UserDeckResponse(BaseModel):
+class UserDeckListResponse(BaseModel):
     id: str
     user_id: str
     name: str
-    cards: list[CardData] = Field(default_factory=list)
     format_guess: str | None = None
     card_count: int = 0
     sideboard_count: int = 0
@@ -25,3 +24,7 @@ class UserDeckResponse(BaseModel):
     updated_at: datetime
     format_hint: str | None = None
     goal: str | None = None
+
+
+class UserDeckResponse(UserDeckListResponse):
+    cards: list[CardData] = Field(default_factory=list)
