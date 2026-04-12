@@ -14,3 +14,4 @@ class CardData(BaseModel):
     legalities: dict = Field(default_factory=dict)
     image_url: Optional[str] = None
     scryfall_uri: Optional[str] = None
+    sideboard: bool = False

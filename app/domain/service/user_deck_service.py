@@ -7,7 +7,6 @@ from datetime import datetime, timezone
 
 from app.contract.models.analyze_deck_response import AnalyzeDeckResponse
 from app.domain.models.card.card_data import CardData
-from app.domain.models.deck.deck_entry import DeckEntry
 from app.domain.models.deck.user_deck import UserDeck
 from app.domain.service.analise_service import build_basic_analysis, guess_format
 from app.domain.service.card_service import CardService
@@ -222,11 +221,15 @@ class UserDeckService:
 
     @staticmethod
     def _build_ordered_cards(deck: UserDeck, card_map: dict[str, CardData]) -> list[CardData]:
-        ordered_entries: list[DeckEntry] = [
-            *deck.parsed_deck.mainboard,
-            *deck.parsed_deck.sideboard,
+        ordered_cards = [
+            card_map[entry.card_name.casefold()].model_copy(update={"sideboard": False})
+            for entry in deck.parsed_deck.mainboard
         ]
-        return [card_map[entry.card_name.casefold()] for entry in ordered_entries]
+        ordered_cards.extend(
+            card_map[entry.card_name.casefold()].model_copy(update={"sideboard": True})
+            for entry in deck.parsed_deck.sideboard
+        )
+        return ordered_cards
 
     @staticmethod
     def _utcnow() -> datetime:
