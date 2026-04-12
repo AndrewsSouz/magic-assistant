@@ -195,6 +195,26 @@ class UserDeckService:
         )
 
     @staticmethod
+    def build_response_cards(deck: UserDeck) -> list[CardData]:
+        ordered_entries = [
+            *[(entry, False) for entry in deck.parsed_deck.mainboard],
+            *[(entry, True) for entry in deck.parsed_deck.sideboard],
+        ]
+
+        response_cards: list[CardData] = []
+        for card, (entry, is_sideboard) in zip(deck.cards, ordered_entries):
+            response_cards.append(
+                card.model_copy(
+                    update={
+                        "quantity": entry.quantity,
+                        "sideboard": is_sideboard,
+                    },
+                )
+            )
+
+        return response_cards
+
+    @staticmethod
     def _validate_create_deck_inputs(user_id: str, name: str, decklist: str) -> None:
         if not user_id.strip():
             raise ValueError("user_id é obrigatório.")

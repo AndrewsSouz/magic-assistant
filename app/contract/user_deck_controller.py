@@ -81,7 +81,15 @@ async def list_user_decks(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    return [UserDeckResponse.model_validate(deck.model_dump()) for deck in decks]
+    return [
+        UserDeckResponse.model_validate(
+            deck.model_dump(
+                update={"cards": user_deck_service.build_response_cards(deck)},
+                exclude={"parsed_deck"},
+            )
+        )
+        for deck in decks
+    ]
 
 
 @router.get("/{user_id}/decks/{deck_id}", response_model=UserDeckResponse)
@@ -95,7 +103,12 @@ async def get_user_deck(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    return UserDeckResponse.model_validate(deck.model_dump())
+    return UserDeckResponse.model_validate(
+        deck.model_dump(
+            update={"cards": user_deck_service.build_response_cards(deck)},
+            exclude={"parsed_deck"},
+        )
+    )
 
 
 @router.post("/{user_id}/decks/{deck_id}/enrich", response_model=CreateUserDeckResponse)
