@@ -220,7 +220,11 @@ class UserDeckService:
 
             analysis_result = await self._build_analysis_result(deck)
             await self._deck_repository.complete_analysis(deck_id, analysis_result)
-            log.info("Analysis completed for deck %s", deck_id)
+            log.info(
+                "Analysis completed for deck %s using source=%s",
+                deck_id,
+                analysis_result.analysis_source,
+            )
         except Exception as exc:
             await self._deck_repository.fail_analysis(deck_id, str(exc))
             log.exception("Analysis failed for deck %s: %s", deck_id, exc)

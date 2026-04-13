@@ -63,43 +63,19 @@ class LlmAnalysisService:
         mainboard_count = sum(card.quantity for card in mainboard_cards)
         sideboard_count = sum(card.quantity for card in sideboard_cards)
         mainboard_lines = [
-            f"{card.quantity}x {card.name}"
+            self._format_card_context(card)
             for card in mainboard_cards
         ]
         sideboard_lines = [
-            f"{card.quantity}x {card.name}"
+            self._format_card_context(card)
             for card in sideboard_cards
         ]
-        mainboard_notes = []
-        for card in mainboard_cards:
-            details = []
-            if card.type_line:
-                details.append(card.type_line)
-            if card.mana_cost:
-                details.append(f"mana {card.mana_cost}")
-            if card.oracle_text:
-                oracle_excerpt = card.oracle_text.replace("\n", " ").strip()
-                details.append(f"texto {oracle_excerpt[:220]}")
-            mainboard_notes.append(
-                f"- {card.quantity}x {card.name}: {' | '.join(details) if details else 'sem dados enriquecidos'}"
-            )
-
-        sideboard_notes = []
-        for card in sideboard_cards:
-            details = []
-            if card.type_line:
-                details.append(card.type_line)
-            if card.mana_cost:
-                details.append(f"mana {card.mana_cost}")
-            if card.oracle_text:
-                oracle_excerpt = card.oracle_text.replace("\n", " ").strip()
-                details.append(f"texto {oracle_excerpt[:220]}")
-            sideboard_notes.append(
-                f"- {card.quantity}x {card.name}: {' | '.join(details) if details else 'sem dados enriquecidos'}"
-            )
 
         return (
-            "Analise este deck de Magic de forma simples e prática.\n\n"
+            "Analise este deck de Magic de forma objetiva e confiavel.\n"
+            "Considere todas as cartas e todos os campos fornecidos no contexto.\n"
+            "Use a heuristica do sistema apenas como apoio, nao como verdade absoluta.\n"
+            "Se houver incerteza, seja conservador e explicito.\n\n"
             f"Objetivo do usuário: {goal or 'general improvement'}\n"
             f"Formato provável: {format_guess}\n"
             f"Contagem do mainboard: {mainboard_count}\n"
@@ -110,17 +86,38 @@ class LlmAnalysisService:
             f"- Pontos fortes: {heuristic_result['strengths']}\n"
             f"- Pontos fracos: {heuristic_result['weaknesses']}\n"
             f"- Sugestões: {heuristic_result['suggestions']}\n\n"
-            "Mainboard (cartas principais):\n"
+            "Mainboard completo com dados enriquecidos:\n"
             f"{chr(10).join(mainboard_lines) if mainboard_lines else 'vazio'}\n\n"
-            "Sideboard (cartas de reserva):\n"
+            "Sideboard completo com dados enriquecidos:\n"
             f"{chr(10).join(sideboard_lines) if sideboard_lines else 'vazio'}\n\n"
-            "Cartas enriquecidas do mainboard:\n"
-            f"{chr(10).join(mainboard_notes) if mainboard_notes else 'sem dados de cartas do mainboard'}\n\n"
-            "Cartas enriquecidas do sideboard:\n"
-            f"{chr(10).join(sideboard_notes) if sideboard_notes else 'sem dados de cartas do sideboard'}\n\n"
-            "Retorne um JSON como passado no json schema:\n"
-            '- "summary": um parágrafo explicando o deck\n'
-            '- "strengths": lista com 2 a 4 itens\n'
-            '- "weaknesses": lista com 2 a 4 itens\n'
-            '- "suggestions": lista com 2 a 4 itens, citar nomes de cartas que encaixam na estratégia\n'
+            "Orcamento da resposta:\n"
+            '- Retorne somente JSON valido com as chaves "summary", "strengths", "weaknesses" e "suggestions".\n'
+            '- "summary": exatamente 2 ou 3 frases curtas.\n'
+            '- "strengths": exatamente 3 itens, cada item com 1 frase curta.\n'
+            '- "weaknesses": exatamente 3 itens, cada item com 1 frase curta.\n'
+            '- "suggestions": exatamente 3 itens, cada item com 1 frase curta; cite nomes de cartas apenas quando o contexto sustentar isso.\n'
+            "- Nao repita o mesmo ponto em campos diferentes.\n"
+            "- Nao use markdown, comentarios, texto fora do JSON ou chaves extras.\n"
+        )
+
+    @staticmethod
+    def _format_card_context(card: CardData) -> str:
+        oracle_text = (card.oracle_text or "").replace("\n", " ").strip() or "desconhecido"
+        colors = ", ".join(card.colors) if card.colors else "nenhuma"
+        color_identity = ", ".join(card.color_identity) if card.color_identity else "nenhuma"
+        legalities = ", ".join(
+            f"{str(fmt)}={str(status)}"
+            for fmt, status in sorted((card.legalities or {}).items(), key=lambda item: str(item[0]))
+        ) or "desconhecido"
+
+        return (
+            f"- name={card.name}; "
+            f"quantity={card.quantity}; "
+            f"mana_cost={card.mana_cost or 'desconhecido'}; "
+            f"cmc={card.cmc if card.cmc is not None else 'desconhecido'}; "
+            f"type_line={card.type_line or 'desconhecido'}; "
+            f"oracle_text={oracle_text}; "
+            f"colors=[{colors}]; "
+            f"color_identity=[{color_identity}]; "
+            f"legalities=[{legalities}]"
         )
