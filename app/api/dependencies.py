@@ -38,18 +38,22 @@ def get_deck_repository() -> DeckRepository:
     return DeckRepository(get_mongo_integration())
 
 
+@lru_cache
 def get_card_service() -> CardService:
     return CardService(get_card_integration())
 
 
+@lru_cache
 def get_llm_analysis_service() -> LlmAnalysisService:
     return LlmAnalysisService(get_llm_integration())
 
 
+@lru_cache
 def get_auth_service() -> AuthService:
     return AuthService(get_user_repository())
 
 
+@lru_cache
 def get_user_deck_service() -> UserDeckService:
     return UserDeckService(
         user_repository=get_user_repository(),

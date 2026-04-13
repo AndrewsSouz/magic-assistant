@@ -31,7 +31,6 @@ def classify_game_plan(avg_cmc: float, creature_count: int, spell_count: int) ->
 
 def build_basic_analysis(parsed_deck: ParsedDeck, cards: list[CardData]) -> dict:
     color_counter = Counter()
-    type_counter = Counter()
     cmcs = []
     land_count = 0
     creature_count = 0
@@ -48,9 +47,6 @@ def build_basic_analysis(parsed_deck: ParsedDeck, cards: list[CardData]) -> dict
             creature_count += entry.quantity
         else:
             noncreature_spell_count += entry.quantity
-
-        major_type = (card.type_line or "Unknown").split("—")[0].strip()
-        type_counter[major_type] += entry.quantity
 
         if card.cmc is not None and "land" not in type_line:
             cmcs.extend([card.cmc] * entry.quantity)

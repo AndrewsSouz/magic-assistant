@@ -120,11 +120,14 @@ class UserDeckService:
                 deck_id,
                 cards=[card.model_dump(mode="json") for card in ordered_cards],
                 format_guess=format_guess,
-                card_count=sum(item.quantity for item in deck.parsed_deck.mainboard),
-                sideboard_count=sum(item.quantity for item in deck.parsed_deck.sideboard),
+                card_count=sum(
+                    item.quantity for item in deck.parsed_deck.mainboard),
+                sideboard_count=sum(
+                    item.quantity for item in deck.parsed_deck.sideboard),
             )
             elapsed = round(time.perf_counter() - started_at, 2)
-            log.info("Enrichment completed for deck %s in %s seconds", deck_id, elapsed)
+            log.info("Enrichment completed for deck %s in %s seconds",
+                     deck_id, elapsed)
         except CardEnrichmentError as exc:
             await self._deck_repository.mark_enrichment_pending(deck_id, str(exc))
             log.warning("Enrichment pending for deck %s: %s", deck_id, exc)
@@ -155,7 +158,8 @@ class UserDeckService:
         if deck.enrichment_status in {"pending", "processing"}:
             raise ValueError("Deck ainda está sendo enriquecido")
         if deck.enrichment_status == "failed":
-            raise ValueError("Falha no enriquecimento do deck. Tente reprocessar")
+            raise ValueError(
+                "Falha no enriquecimento do deck. Tente reprocessar")
         if deck.enrichment_status != "completed":
             raise ValueError("Deck não está pronto para análise")
         if deck.analysis_status == "pending":
@@ -222,13 +226,12 @@ class UserDeckService:
             log.exception("Analysis failed for deck %s: %s", deck_id, exc)
 
     async def _build_analysis_result(self, deck: UserDeck) -> DeckAnalysis:
-        mainboard_cards = deck.cards[:len(deck.parsed_deck.mainboard)]
+        mainboard_cards = [card for card in deck.cards if not card.sideboard]
         heuristic_result = build_basic_analysis(deck.parsed_deck, mainboard_cards)
         llm_result = None
         if self._llm_analysis_service and self._llm_analysis_service.enabled:
             llm_result = await self._llm_analysis_service.analyze(
-                parsed_deck=deck.parsed_deck,
-                cards=mainboard_cards,
+                cards=deck.cards,
                 format_guess=deck.format_guess or "Desconhecido",
                 goal=deck.goal,
                 heuristic_result=heuristic_result,
@@ -241,7 +244,6 @@ class UserDeckService:
             strengths=result["strengths"],
             weaknesses=result["weaknesses"],
             suggestions=result["suggestions"],
-            parsed_deck=deck.parsed_deck,
             card_count=deck.card_count,
             sideboard_count=deck.sideboard_count,
             analysis_source="llm" if llm_result else "heuristic",
@@ -249,23 +251,7 @@ class UserDeckService:
 
     @staticmethod
     def build_response_cards(deck: UserDeck) -> list[CardData]:
-        ordered_entries = [
-            *[(entry, False) for entry in deck.parsed_deck.mainboard],
-            *[(entry, True) for entry in deck.parsed_deck.sideboard],
-        ]
-
-        response_cards: list[CardData] = []
-        for card, (entry, is_sideboard) in zip(deck.cards, ordered_entries):
-            response_cards.append(
-                card.model_copy(
-                    update={
-                        "quantity": entry.quantity,
-                        "sideboard": is_sideboard,
-                    },
-                )
-            )
-
-        return response_cards
+        return [card.model_copy() for card in deck.cards]
 
     @staticmethod
     def _validate_create_deck_inputs(user_id: str, name: str, decklist: str) -> None:

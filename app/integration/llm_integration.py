@@ -10,19 +10,20 @@ from openai import AsyncOpenAI, RateLimitError
 
 log = logging.getLogger(__name__)
 
-DEFAULT_OPENROUTER_MODEL = "openrouter/free"
-OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
+DEFAULT_GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 
 
 class LlmIntegration:
     def __init__(
         self,
     ) -> None:
-        self._api_key = os.getenv("OPENROUTER_API_KEY")
-        self._model = DEFAULT_OPENROUTER_MODEL
+        self._base_url = (os.getenv("GROQ_BASE_URL"))
+        self._api_key = (os.getenv("GROQ_API_KEY"))
+        self._model = (os.getenv("GROQ_MODEL"))
         self._client = (
             AsyncOpenAI(
-                base_url=OPENROUTER_BASE_URL,
+                base_url=self._base_url,
                 api_key=self._api_key,
             )
             if self._api_key
@@ -38,12 +39,12 @@ class LlmIntegration:
             return None
 
         try:
-            response = await self._client.responses.create(
+            response = await self._client.chat.completions.create(
                 model=self._model,
-                max_output_tokens=800,
-                text={
-                    "format": {
-                        "type": "json_schema",
+                max_tokens=800,
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
                         "name": "deck_analysis",
                         "strict": True,
                         "schema": {
@@ -66,11 +67,11 @@ class LlmIntegration:
                             },
                             "required": ["summary", "strengths", "weaknesses", "suggestions"],
                         },
-                    }
+                    },
                 },
-                input=[
+                messages=[
                     {
-                        "role": "developer",
+                        "role": "system",
                         "content": (
                             "Voce e um analista de decks de Magic: The Gathering. "
                             "Responda em portugues do Brasil com observacoes uteis, objetivas e curtas. "
@@ -85,24 +86,23 @@ class LlmIntegration:
                 ],
             )
         except RateLimitError as exc:
-            log.warning("OpenRouter rate-limited model %s: %s",
+            log.warning("LLM provider rate-limited model %s: %s",
                         self._model, exc)
             return None
         except Exception:
             log.exception(
-                "OpenRouter deck analysis request failed for model %s", self._model)
+                "LLM deck analysis request failed for model %s", self._model)
             return None
 
         log.info(
-            "OpenRouter response received for model %s with %s output item(s)",
+            "LLM response received for model %s with %s choice(s)",
             self._model,
-            len(getattr(response, "output", []) or []),
+            len(getattr(response, "choices", []) or []),
         )
         output_text = self._extract_output_text(response)
-        log.info("Extracted output text for model %s: %s", self._model, output_text)
         if not output_text:
             log.info(
-                "OpenRouter response returned no output text for model %s", self._model)
+                "LLM response returned no output text for model %s", self._model)
             return None
 
         try:
@@ -111,31 +111,24 @@ class LlmIntegration:
             cleaned_output = self._extract_json_text(output_text)
             if not cleaned_output:
                 log.warning(
-                    "OpenRouter response was not valid JSON for model %s", self._model)
+                    "LLM response was not valid JSON for model %s", self._model)
                 return None
 
             try:
                 return json.loads(cleaned_output)
             except json.JSONDecodeError:
                 log.warning(
-                    "OpenRouter response was not valid JSON for model %s", self._model)
+                    "LLM response was not valid JSON for model %s", self._model)
                 return None
 
     @staticmethod
     def _extract_output_text(response: Any) -> str | None:
-        aggregated_text = getattr(response, "output_text", None)
-        if isinstance(aggregated_text, str) and aggregated_text.strip():
-            return aggregated_text.strip()
-
         try:
-            for output in response.output:
-                if getattr(output, "type", None) != "message":
-                    continue
-
-                for content in getattr(output, "content", []) or []:
-                    text = getattr(content, "text", None)
-                    if isinstance(text, str) and text.strip():
-                        return text.strip()
+            choice = (getattr(response, "choices", None) or [])[0]
+            message = getattr(choice, "message", None)
+            text = getattr(message, "content", None)
+            if isinstance(text, str) and text.strip():
+                return text.strip()
         except (AttributeError, IndexError, TypeError):
             return None
         return None

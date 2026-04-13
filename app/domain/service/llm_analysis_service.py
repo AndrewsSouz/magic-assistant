@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from app.domain.models.card.card_data import CardData
-from app.domain.models.deck.parsed_deck import ParsedDeck
 from app.integration.llm_integration import LlmIntegration
 
 
@@ -15,7 +14,6 @@ class LlmAnalysisService:
 
     async def analyze(
         self,
-        parsed_deck: ParsedDeck,
         cards: list[CardData],
         format_guess: str,
         goal: str | None,
@@ -25,7 +23,6 @@ class LlmAnalysisService:
             return None
 
         prompt = self._build_prompt(
-            parsed_deck=parsed_deck,
             cards=cards,
             format_guess=format_guess,
             goal=goal,
@@ -56,22 +53,25 @@ class LlmAnalysisService:
 
     def _build_prompt(
         self,
-        parsed_deck: ParsedDeck,
         cards: list[CardData],
         format_guess: str,
         goal: str | None,
         heuristic_result: dict,
     ) -> str:
+        mainboard_cards = [card for card in cards if not card.sideboard]
+        sideboard_cards = [card for card in cards if card.sideboard]
+        mainboard_count = sum(card.quantity for card in mainboard_cards)
+        sideboard_count = sum(card.quantity for card in sideboard_cards)
         mainboard_lines = [
-            f"{entry.quantity}x {entry.card_name}"
-            for entry in parsed_deck.mainboard
+            f"{card.quantity}x {card.name}"
+            for card in mainboard_cards
         ]
         sideboard_lines = [
-            f"{entry.quantity}x {entry.card_name}"
-            for entry in parsed_deck.sideboard
+            f"{card.quantity}x {card.name}"
+            for card in sideboard_cards
         ]
-        card_notes = []
-        for entry, card in zip(parsed_deck.mainboard, cards):
+        mainboard_notes = []
+        for card in mainboard_cards:
             details = []
             if card.type_line:
                 details.append(card.type_line)
@@ -80,31 +80,47 @@ class LlmAnalysisService:
             if card.oracle_text:
                 oracle_excerpt = card.oracle_text.replace("\n", " ").strip()
                 details.append(f"texto {oracle_excerpt[:220]}")
-            card_notes.append(
-                f"- {entry.card_name}: {' | '.join(details) if details else 'sem dados enriquecidos'}"
+            mainboard_notes.append(
+                f"- {card.quantity}x {card.name}: {' | '.join(details) if details else 'sem dados enriquecidos'}"
+            )
+
+        sideboard_notes = []
+        for card in sideboard_cards:
+            details = []
+            if card.type_line:
+                details.append(card.type_line)
+            if card.mana_cost:
+                details.append(f"mana {card.mana_cost}")
+            if card.oracle_text:
+                oracle_excerpt = card.oracle_text.replace("\n", " ").strip()
+                details.append(f"texto {oracle_excerpt[:220]}")
+            sideboard_notes.append(
+                f"- {card.quantity}x {card.name}: {' | '.join(details) if details else 'sem dados enriquecidos'}"
             )
 
         return (
             "Analise este deck de Magic de forma simples e prática.\n\n"
             f"Objetivo do usuário: {goal or 'general improvement'}\n"
             f"Formato provável: {format_guess}\n"
-            f"Contagem do mainboard: {heuristic_result['card_count']}\n"
-            f"Contagem do sideboard: {heuristic_result['sideboard_count']}\n\n"
+            f"Contagem do mainboard: {mainboard_count}\n"
+            f"Contagem do sideboard: {sideboard_count}\n"
+            f"Contagem total: {mainboard_count + sideboard_count}\n\n"
             "Heurística atual do sistema:\n"
             f"- Resumo: {heuristic_result['summary']}\n"
             f"- Pontos fortes: {heuristic_result['strengths']}\n"
             f"- Pontos fracos: {heuristic_result['weaknesses']}\n"
             f"- Sugestões: {heuristic_result['suggestions']}\n\n"
-            "Mainboard:\n"
+            "Mainboard (cartas principais):\n"
             f"{chr(10).join(mainboard_lines) if mainboard_lines else 'vazio'}\n\n"
-            "Sideboard:\n"
+            "Sideboard (cartas de reserva):\n"
             f"{chr(10).join(sideboard_lines) if sideboard_lines else 'vazio'}\n\n"
-            "Cartas enriquecidas:\n"
-            f"{chr(10).join(card_notes) if card_notes else 'sem dados de cartas'}\n\n"
+            "Cartas enriquecidas do mainboard:\n"
+            f"{chr(10).join(mainboard_notes) if mainboard_notes else 'sem dados de cartas do mainboard'}\n\n"
+            "Cartas enriquecidas do sideboard:\n"
+            f"{chr(10).join(sideboard_notes) if sideboard_notes else 'sem dados de cartas do sideboard'}\n\n"
             "Retorne um JSON como passado no json schema:\n"
-            '- "summary": um parágrafo curto\n'
+            '- "summary": um parágrafo explicando o deck\n'
             '- "strengths": lista com 2 a 4 itens\n'
             '- "weaknesses": lista com 2 a 4 itens\n'
-            '- "suggestions": lista com 2 a 4 itens\n'
-            "Evite repetir exatamente a heurística se puder refiná-la com o contexto disponível."
+            '- "suggestions": lista com 2 a 4 itens, citar nomes de cartas que encaixam na estratégia\n'
         )
