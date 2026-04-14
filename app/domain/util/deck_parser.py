@@ -107,10 +107,13 @@ def parse_decklist(decklist: str) -> ParsedDeck:
     warnings = []
     detected_sections = []
     current_section = "mainboard"
+    seen_mainboard_entries = False
 
     for raw_line in decklist.splitlines():
         line = _normalize_line(raw_line)
         if not line:
+            if current_section == "mainboard" and seen_mainboard_entries:
+                current_section = "sideboard"
             continue
 
         section_type = _classify_section(line)
@@ -129,6 +132,7 @@ def parse_decklist(decklist: str) -> ParsedDeck:
             sideboard.append(entry)
         else:
             mainboard.append(entry)
+            seen_mainboard_entries = True
 
     if unparsed_lines:
         warnings.append(f"{len(unparsed_lines)} line(s) could not be parsed.")

@@ -66,6 +66,24 @@ def test_parse_sideboard_and_detected_sections() -> None:
     assert parsed.sideboard[0].card_name == "Pyroblast"
 
 
+def test_parse_implicit_sideboard_after_blank_line() -> None:
+    parsed = parse_decklist(
+        """
+        4 Lightning Bolt
+        2 Chain Lightning
+
+        2 Pyroblast
+        1 Red Elemental Blast
+        """
+    )
+
+    assert len(parsed.mainboard) == 2
+    assert len(parsed.sideboard) == 2
+    assert parsed.mainboard[0].zone == "mainboard"
+    assert parsed.sideboard[0].zone == "sideboard"
+    assert parsed.sideboard[0].card_name == "Pyroblast"
+
+
 def test_collect_unparsed_lines_and_warnings() -> None:
     parsed = parse_decklist(
         """
