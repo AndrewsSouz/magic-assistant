@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from bson import ObjectId
@@ -37,6 +38,49 @@ class UserRepository:
 
     async def find_by_email(self, email: str) -> dict[str, Any] | None:
         return await self._collection.find_one({"email": email})
+
+    async def store_password_reset_token(
+        self,
+        user_id: str,
+        token_hash: str,
+        expires_at: datetime,
+    ) -> None:
+        await self._collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {
+                "$set": {
+                    "password_reset_token_hash": token_hash,
+                    "password_reset_expires_at": expires_at,
+                }
+            },
+        )
+
+    async def find_by_password_reset_token_hash(
+        self,
+        token_hash: str,
+    ) -> dict[str, Any] | None:
+        return await self._collection.find_one(
+            {
+                "password_reset_token_hash": token_hash,
+                "password_reset_expires_at": {"$gt": datetime.now(timezone.utc)},
+            }
+        )
+
+    async def update_password(
+        self,
+        user_id: str,
+        password_hash: str,
+    ) -> None:
+        await self._collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {
+                "$set": {"password_hash": password_hash},
+                "$unset": {
+                    "password_reset_token_hash": "",
+                    "password_reset_expires_at": "",
+                },
+            },
+        )
 
     async def find_by_id(self, user_id: str) -> User | None:
         try:

@@ -9,7 +9,11 @@ from app.contract.models.analyze_deck_response import (
 from app.contract.models.create_user_deck_request import CreateUserDeckRequest
 from app.contract.models.create_user_deck_response import CreateUserDeckResponse
 from app.contract.models.login_user_request import LoginUserRequest
+from app.contract.models.request_password_reset_request import RequestPasswordResetRequest
+from app.contract.models.request_password_reset_response import RequestPasswordResetResponse
 from app.contract.models.register_user_request import RegisterUserRequest
+from app.contract.models.reset_password_request import ResetPasswordRequest
+from app.contract.models.reset_password_response import ResetPasswordResponse
 from app.contract.models.user_deck_response import UserDeckListResponse, UserDeckResponse
 from app.contract.models.user_response import UserResponse
 from app.domain.service.auth_service import AuthService
@@ -73,6 +77,43 @@ async def login_user(
         raise HTTPException(status_code=401, detail="Email ou senha inválidos.")
 
     return UserResponse.model_validate(user.model_dump())
+
+
+@router.post("/password-reset/request", response_model=RequestPasswordResetResponse)
+async def request_password_reset(
+    request: RequestPasswordResetRequest,
+    auth_service: AuthService = Depends(get_auth_service),
+) -> RequestPasswordResetResponse:
+    try:
+        result = await auth_service.request_password_reset(email=request.email)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+
+    reset_token, expires_in_minutes = result
+    return RequestPasswordResetResponse(
+        message="Password reset token generated.",
+        reset_token=reset_token,
+        expires_in_minutes=expires_in_minutes,
+    )
+
+
+@router.post("/password-reset/confirm", response_model=ResetPasswordResponse)
+async def reset_password(
+    request: ResetPasswordRequest,
+    auth_service: AuthService = Depends(get_auth_service),
+) -> ResetPasswordResponse:
+    try:
+        await auth_service.reset_password(
+            token=request.token,
+            new_password=request.new_password,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return ResetPasswordResponse(message="Password updated successfully.")
 
 
 @router.post("/{user_id}/decks", response_model=CreateUserDeckResponse)

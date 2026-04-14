@@ -3,12 +3,15 @@ from __future__ import annotations
 import hashlib
 import hmac
 import secrets
+from datetime import datetime, timedelta, timezone
 
 from app.domain.models.user.user import User
 from app.integration.user_repository import UserRepository
 
 
 class AuthService:
+    PASSWORD_RESET_TOKEN_TTL_MINUTES = 30
+
     def __init__(self, user_repository: UserRepository) -> None:
         self._user_repository = user_repository
 
@@ -48,6 +51,44 @@ class AuthService:
             display_name=str(document["display_name"]),
         )
 
+    async def request_password_reset(self, email: str) -> tuple[str, int] | None:
+        normalized_email = email.strip().lower()
+        if not normalized_email:
+            raise ValueError("Email é obrigatório.")
+
+        document = await self._user_repository.find_by_email(normalized_email)
+        if not document:
+            return None
+
+        raw_token = secrets.token_urlsafe(32)
+        expires_at = datetime.now(timezone.utc) + timedelta(
+            minutes=self.PASSWORD_RESET_TOKEN_TTL_MINUTES
+        )
+        await self._user_repository.store_password_reset_token(
+            user_id=str(document["_id"]),
+            token_hash=self._hash_reset_token(raw_token),
+            expires_at=expires_at,
+        )
+        return raw_token, self.PASSWORD_RESET_TOKEN_TTL_MINUTES
+
+    async def reset_password(self, token: str, new_password: str) -> None:
+        normalized_token = token.strip()
+        if not normalized_token:
+            raise ValueError("Token é obrigatório.")
+        if not new_password.strip():
+            raise ValueError("Nova senha é obrigatória.")
+
+        document = await self._user_repository.find_by_password_reset_token_hash(
+            self._hash_reset_token(normalized_token)
+        )
+        if not document:
+            raise ValueError("Token inválido ou expirado.")
+
+        await self._user_repository.update_password(
+            user_id=str(document["_id"]),
+            password_hash=self._hash_password(new_password),
+        )
+
     @staticmethod
     def _hash_password(password: str) -> str:
         salt = secrets.token_hex(16)
@@ -73,3 +114,7 @@ class AuthService:
             100_000,
         ).hex()
         return hmac.compare_digest(actual_digest, expected_digest)
+
+    @staticmethod
+    def _hash_reset_token(token: str) -> str:
+        return hashlib.sha256(token.encode("utf-8")).hexdigest()
