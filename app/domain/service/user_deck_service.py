@@ -87,24 +87,24 @@ class UserDeckService:
 
     async def enrich_deck(self, user_id: str, deck_id: str) -> None:
         deck = await self.get_user_deck(user_id, deck_id)
-        unique_names = self._extract_unique_card_names(deck)
+        unique_entries = self._extract_unique_entries(deck)
         started_at = time.perf_counter()
 
         log.info("Enrichment started for deck %s", deck_id)
-        log.info("Deck %s has %s unique card(s)", deck_id, len(unique_names))
+        log.info("Deck %s has %s unique card(s)", deck_id, len(unique_entries))
         log.info(
             "Deck %s will be sent in %s batch(es) to Scryfall collection",
             deck_id,
-            (len(unique_names) + 74) // 75 if unique_names else 0,
+            (len(unique_entries) + 74) // 75 if unique_entries else 0,
         )
 
         await self._deck_repository.mark_enrichment_processing(deck_id)
 
         try:
-            unique_cards = await self._card_service.fetch_cards_by_exact_names(unique_names)
+            unique_cards = await self._card_service.fetch_cards_by_entries(unique_entries)
             card_map = {
-                requested_name.casefold(): card
-                for requested_name, card in zip(unique_names, unique_cards)
+                self._entry_lookup_key(requested_entry): card
+                for requested_entry, card in zip(unique_entries, unique_cards)
             }
             ordered_cards = self._build_ordered_cards(deck, card_map)
             format_guess = deck.format_hint or guess_format(deck.parsed_deck)
@@ -260,25 +260,22 @@ class UserDeckService:
             raise ValueError("decklist é obrigatório.")
 
     @staticmethod
-    def _extract_unique_card_names(deck: UserDeck) -> list[str]:
-        names = [
-            entry.card_name
-            for entry in [*deck.parsed_deck.mainboard, *deck.parsed_deck.sideboard]
-        ]
-        seen: set[str] = set()
-        unique_names: list[str] = []
-        for name in names:
-            key = name.casefold()
+    def _extract_unique_entries(deck: UserDeck) -> list:
+        entries = [*deck.parsed_deck.mainboard, *deck.parsed_deck.sideboard]
+        seen: set[tuple[str, str | None, str | None]] = set()
+        unique_entries = []
+        for entry in entries:
+            key = UserDeckService._entry_lookup_key(entry)
             if key in seen:
                 continue
             seen.add(key)
-            unique_names.append(name)
-        return unique_names
+            unique_entries.append(entry)
+        return unique_entries
 
     @staticmethod
-    def _build_ordered_cards(deck: UserDeck, card_map: dict[str, CardData]) -> list[CardData]:
+    def _build_ordered_cards(deck: UserDeck, card_map: dict[tuple[str, str | None, str | None], CardData]) -> list[CardData]:
         ordered_cards = [
-            card_map[entry.card_name.casefold()].model_copy(
+            card_map[UserDeckService._entry_lookup_key(entry)].model_copy(
                 update={
                     "quantity": entry.quantity,
                     "sideboard": False,
@@ -287,7 +284,7 @@ class UserDeckService:
             for entry in deck.parsed_deck.mainboard
         ]
         ordered_cards.extend(
-            card_map[entry.card_name.casefold()].model_copy(
+            card_map[UserDeckService._entry_lookup_key(entry)].model_copy(
                 update={
                     "quantity": entry.quantity,
                     "sideboard": True,
@@ -296,6 +293,14 @@ class UserDeckService:
             for entry in deck.parsed_deck.sideboard
         )
         return ordered_cards
+
+    @staticmethod
+    def _entry_lookup_key(entry) -> tuple[str, str | None, str | None]:
+        return (
+            entry.card_name.casefold(),
+            ((entry.set_code or "").strip().upper() or None),
+            ((entry.collector_number or "").strip() or None),
+        )
 
     @staticmethod
     def _utcnow() -> datetime:
