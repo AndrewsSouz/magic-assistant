@@ -84,6 +84,23 @@ def test_parse_implicit_sideboard_after_blank_line() -> None:
     assert parsed.sideboard[0].card_name == "Pyroblast"
 
 
+def test_ignore_counted_section_headers() -> None:
+    parsed = parse_decklist(
+        """
+        12 CREATURES
+        4 Llanowar Elves
+        8 INSTANTS and SORC.
+        4 Lightning Bolt
+        """
+    )
+
+    assert parsed.detected_sections == ["12 CREATURES", "8 INSTANTS and SORC."]
+    assert len(parsed.mainboard) == 2
+    assert parsed.mainboard[0].card_name == "Llanowar Elves"
+    assert parsed.mainboard[1].card_name == "Lightning Bolt"
+    assert parsed.unparsed_lines == []
+
+
 def test_collect_unparsed_lines_and_warnings() -> None:
     parsed = parse_decklist(
         """

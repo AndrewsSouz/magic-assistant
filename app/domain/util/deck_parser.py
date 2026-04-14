@@ -18,6 +18,8 @@ MAINBOARD_MARKERS = {
     "instants",
     "sorceries",
     "instants and sorceries",
+    "instants and sorc",
+    "instants and sorcs",
     "artifacts",
     "enchantments",
     "planeswalkers",
@@ -34,6 +36,9 @@ def _normalize_line(line: str) -> str:
 
 def _normalize_section_name(line: str) -> str:
     normalized = line.strip().lower().rstrip(":")
+    normalized = re.sub(r"^\d+\s+", "", normalized)
+    normalized = normalized.replace("&", " and ")
+    normalized = normalized.replace(".", "")
     return re.sub(r"\s+", " ", normalized)
 
 
