@@ -10,13 +10,17 @@ CONSOLE_FORMAT = "%(levelname)s [%(name)s] %(message)s"
 
 
 def configure_logging() -> Path:
-    log_file = Path(DEFAULT_LOG_FILE)
+    log_file = Path(os.getenv("APP_LOG_FILE") or DEFAULT_LOG_FILE)
     log_file.parent.mkdir(parents=True, exist_ok=True)
 
     root_logger = logging.getLogger()
     resolved_log_file = log_file.resolve()
 
-    if not any(isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler) for handler in root_logger.handlers):
+    if not any(
+        isinstance(handler, logging.StreamHandler)
+        and not isinstance(handler, logging.FileHandler)
+        for handler in root_logger.handlers
+    ):
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.INFO)
         console_handler.setFormatter(logging.Formatter(CONSOLE_FORMAT))

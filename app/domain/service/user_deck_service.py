@@ -106,13 +106,6 @@ class UserDeckService:
                 requested_name.casefold(): card
                 for requested_name, card in zip(unique_names, unique_cards)
             }
-            missing_names = [
-                name for name in unique_names
-                if name.casefold() not in card_map
-            ]
-            if missing_names:
-                raise CardEnrichmentError(f"Cards not found: {missing_names}")
-
             ordered_cards = self._build_ordered_cards(deck, card_map)
             format_guess = deck.format_hint or guess_format(deck.parsed_deck)
 
